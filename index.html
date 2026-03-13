@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { font-family: Arial; background: #121212; color: white; text-align: center; padding: 20px;}
+        input { width: 80%; padding: 10px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555;}
+        button { padding: 10px 20px; background: #e85b46; color: white; border: none; cursor: pointer; font-weight: bold;}
+        video { width: 100%; max-width: 900px; margin-top: 20px; background: #000; }
+    </style>
+</head>
+<body>
+
+    <h2>Cloud-Proxied HLS Player</h2>
+    
+    <!-- PASTE YOUR CLOUDFLARE WORKER URL HERE -->
+    <input type="text" id="proxyUrl" value="https://hlsplayer.dgfrii1800.workers.dev/?url=" placeholder="Proxy URL">
+    <br>
+    <!-- PASTE YOUR MUX LINK HERE -->
+    <input type="text" id="videoUrl" placeholder="Paste .m3u8 link here">
+    <br>
+    <button onclick="playVideo()">Play High Quality Video</button>
+
+    <video id="videoPlayer" controls></video>
+
+    <script>
+        function playVideo() {
+            var rawUrl = document.getElementById('videoUrl').value;
+            var proxyBase = document.getElementById('proxyUrl').value;
+            var video = document.getElementById('videoPlayer');
+
+            if (Hls.isSupported()) {
+                // We use a custom loader to force every video chunk through your proxy!
+                var hls = new Hls({
+                    pLoader: function (config) {
+                        let loader = new Hls.DefaultConfig.loader(config);
+                        this.abort = () => loader.abort();
+                        this.destroy = () => loader.destroy();
+                        this.load = (context, config, callbacks) => {
+                            // This encodes the Mux URL and attaches it to your proxy
+                            context.url = proxyBase + encodeURIComponent(context.url);
+                            loader.load(context, config, callbacks);
+                        };
+                    }
+                });
+
+                hls.loadSource(rawUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    // This line forces it to grab the 1080p stream
+                    hls.currentLevel = hls.levels.length - 1; 
+                    video.play();
+                });
+            }
+        }
+    </script>
+</body>
+</html>
